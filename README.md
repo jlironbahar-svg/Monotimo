@@ -210,10 +210,13 @@ Pick whichever is easiest. All three produce the same app.
 Every push that touches `mobile-app/` runs [`.github/workflows/android-apk.yml`](.github/workflows/android-apk.yml),
 which builds a release APK on GitHub's servers.
 
-1. Open the repository on GitHub → **Actions** → **Android APK** → the latest green run.
-2. Download the **desktop-friend-apk** artifact (a zip containing `desktop-friend-xxxxxxx.apk`).
-3. Copy the `.apk` to your phone and open it (allow "Install unknown apps" for your file manager/browser), or
-   `adb install desktop-friend-xxxxxxx.apk`.
+**Easiest, straight from your phone:** open
+**https://github.com/jlironbahar-svg/Monotimo/releases/download/apk-latest/desktop-friend.apk**
+(or the repo's **Releases → Desktop Friend APK (latest build)**), then tap the downloaded file and allow
+"Install unknown apps" for your browser. Each build replaces this file with the newest version.
+
+The same APK is also attached to every run as a zip artifact: **Actions** → **Android APK** → latest green run →
+**desktop-friend-apk**. You can also install it from a computer with `adb install desktop-friend.apk`.
 
 You can also start a build by hand: **Actions → Android APK → Run workflow**.
 

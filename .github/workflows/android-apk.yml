@@ -18,6 +18,9 @@ concurrency:
   group: apk-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write # publish the APK to the "apk-latest" release
+
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -68,3 +71,20 @@ jobs:
           path: mobile-app/desktop-friend-*.apk
           if-no-files-found: error
           retention-days: 30
+
+      # Also attach the APK to a GitHub Release so it can be downloaded directly (no zip), e.g. on the phone:
+      # https://github.com/<owner>/<repo>/releases/download/apk-latest/desktop-friend.apk
+      - name: Publish to the apk-latest release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp desktop-friend-*.apk desktop-friend.apk
+          notes="Latest Desktop Friend Android build from \`${GITHUB_REF_NAME}\` (commit ${GITHUB_SHA::7}).
+
+          Install: open desktop-friend.apk on your phone and allow installing from this source."
+          if ! gh release view apk-latest >/dev/null 2>&1; then
+            gh release create apk-latest --prerelease --target "$GITHUB_SHA" --title "Desktop Friend APK (latest build)" --notes "$notes"
+          fi
+          gh release upload apk-latest desktop-friend.apk --clobber
+          gh release edit apk-latest --notes "$notes"
