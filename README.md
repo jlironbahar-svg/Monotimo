@@ -64,13 +64,14 @@ Tamagotchi-style pet you can feed, pet and play with.
 │   │   ├── vision.py             # screen capture (mss), grid annotation, 2-pass locate, describe
 │   │   ├── automation.py         # pyautogui mouse/keyboard, cross-platform app launching
 │   │   ├── groq_client.py        # chat / vision / Whisper over Groq's REST API
+│   │   ├── models.py             # self-healing model choice (replaces retired Groq models)
 │   │   ├── tts.py                # ElevenLabs TTS + short-lived audio cache
 │   │   ├── websearch.py          # browser search + Groq Compound summary (DuckDuckGo fallback)
 │   │   ├── fallback.py           # regex intent router for keyless / offline use
 │   │   ├── sounds.py             # synthesized chimes + non-blocking player
 │   │   ├── config.py, netinfo.py, protocol.py, ui.py
 │   │   └── gui/                  # PySide6: overlay.py (blue cursor), pairing_window.py, app.py, bridge.py
-│   ├── tests/                    # 54 pytest tests (server, brain, vision, pairing, GUI off-screen, ...)
+│   ├── tests/                    # 65 pytest tests (server, brain, vision, pairing, GUI off-screen, ...)
 │   ├── .env.example              # configuration template (copy to .env)
 │   ├── requirements.txt / requirements-dev.txt / pyproject.toml
 │   └── start.bat / start.sh      # one-click launchers (create venv, install, run)
@@ -175,7 +176,7 @@ ELEVENLABS_VOICE_ID=cgSgspJ2msm6clMCkdW9
 | `ELEVENLABS_VOICE_ID` | `cgSgspJ2msm6clMCkdW9` (Jessica, playful and warm) | Any voice from your ElevenLabs library |
 | `ELEVENLABS_MODEL_ID` | `eleven_flash_v2_5` | Low-latency TTS model |
 | `GROQ_CHAT_MODEL` | `openai/gpt-oss-120b` | Tool-calling chat model |
-| `GROQ_VISION_MODEL` | `meta-llama/llama-4-scout-17b-16e-instruct` | Screenshot understanding + pointing |
+| `GROQ_VISION_MODEL` | `auto` | Screenshot understanding + pointing. `auto` picks a working vision model on your account |
 | `GROQ_STT_MODEL` | `whisper-large-v3-turbo` | Voice transcription |
 | `GROQ_SEARCH_MODEL` | `groq/compound-mini` | Web-search summaries |
 | `DF_PORT` | `8765` | Server port |
@@ -186,8 +187,9 @@ ELEVENLABS_VOICE_ID=cgSgspJ2msm6clMCkdW9
 | `DF_PC_SOUNDS` | `true` | Chimes on the PC when pointing / clicking |
 | `DF_SEARCH_URL` | Google | Search page opened in your browser (`{query}` placeholder) |
 
-Groq retires models from time to time. If `--check` reports a model as missing, it prints the models your account
-can use; put one of them in `.env`.
+Groq retires models from time to time. **The agent heals itself:** at startup, and whenever a call fails because
+a model was retired (or can't read images), it picks a working model from your account, tests it, saves it to
+`.env`, and retries. `python -m desktop_friend --check` does the same and prints what it chose.
 
 ### OS permissions
 
@@ -279,9 +281,11 @@ connection** or scan a new QR code.
   away, and your friend levels up with XP. Tap the avatar for pets.
 * **🖱️ PC Control:** hold the 🎤 button to talk, or type commands. Quick actions: *What's on screen?*,
   *Point at…*, *Click…*, *Type…*, *Search web…*, *Peek at screen* (live screenshot), scroll, and *Cursor home*.
-* **🚀 Apps:** one-tap launchers for PC apps (browser, notepad, calculator, files, terminal, Spotify, VS Code…),
-  websites, media keys (play/pause, volume) and shortcuts (save, undo, copy, paste, switch app). Add your own
-  shortcuts. Long-press one to remove it.
+* **🚀 Apps:** a featured **Open Claude** button (Claude desktop app, or claude.ai if it isn't installed), one-tap
+  launchers for ChatGPT, browser, files, notepad, calculator, terminal, VS Code, Spotify, Discord, WhatsApp…, popular
+  websites, and a searchable list of **every app installed on your PC** (long-press to pin). Plus 30+ keyboard
+  shortcuts grouped as Media, Editing, Browser & tabs, and Windows & system (screenshot, lock PC, show desktop…),
+  sent with the right keys for Windows, macOS or Linux automatically.
 * **⚙️ Settings:** Groq / ElevenLabs keys and voice ID (saved on the PC), sound effects, vibration, voice options,
   PC chimes, blue-cursor visibility, pet name, **custom avatar photo** (any gallery photo, animated with bounce,
   float, blink and talk pulses), and Wi-Fi connection details.
@@ -318,7 +322,7 @@ connection** or scan a new QR code.
 ```bash
 # PC agent
 cd pc-agent && pip install -r requirements-dev.txt
-QT_QPA_PLATFORM=offscreen python -m pytest -q     # 54 tests, no display needed
+QT_QPA_PLATFORM=offscreen python -m pytest -q     # 65 tests, no display needed
 
 # Mobile app
 cd mobile-app && npm ci
@@ -336,7 +340,8 @@ if the Python side drifts from it.
 | Phone stuck on "Saying hi…" / "Can't reach PC" | Same Wi-Fi? Guest networks and "AP isolation" block device-to-device traffic. Allow Python in the PC firewall (private network). Try the other address shown in the pairing window. |
 | "Pairing was refused" | The QR code was rotated or the phone was unpaired. Scan the current QR code. |
 | Chat works but no voice | Check `ELEVENLABS_API_KEY` with `--check`. An ElevenLabs API key normally starts with `sk_`. A 20-character value like `21m00Tcm4TlvDq8ikWAM` is a voice ID: put it in `ELEVENLABS_VOICE_ID`. |
-| "The Groq model … isn't available" | Run `python -m desktop_friend --check` and pick a listed model in `.env`. |
+| "I can't see your screen right now" | Run `python -m desktop_friend --check`. It lists your account's models and switches to a working vision model automatically. |
 | Blue cursor points at the wrong place | Keep `DF_VISION_REFINE=true`. Describe the target visually ("the green Save button in the top toolbar"). Multi-monitor: the agent uses the primary screen. |
+| Camera or microphone won't open on the phone | Install the newest APK (1.1.0 fixed a manifest bug that blocked both). If you once tapped "Don't allow", the app now shows an **Open Settings** button. |
 | Clicks do nothing on macOS | Grant Accessibility (and Screen Recording) permission, then restart the agent. |
 | `Could not start the server on port 8765` | Another copy is running. Close it from the tray icon or use `--port`. |

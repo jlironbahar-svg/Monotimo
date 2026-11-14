@@ -13,6 +13,7 @@ from typing import Any
 
 from aiohttp import WSMsgType, web
 
+from .models import is_unusable_model_error
 from .protocol import PROTOCOL_VERSION, QUICK_ACTIONS
 from .tts import TTSError
 
@@ -164,6 +165,8 @@ class Session:
             changed = self.agent.cfg.update_from_phone(msg)
             if "DF_CURSOR_VISIBLE" in changed:
                 self.agent.ui.set_visible(self.agent.cfg.cursor_visible)
+            if "GROQ_API_KEY" in changed:
+                self._spawn(self.agent.models.startup_check())
             if changed:
                 log.info("settings updated from phone: %s", ", ".join(changed))
                 self.agent.ui.config_changed()
@@ -174,6 +177,8 @@ class Session:
             self._spawn(self._handle_voice(msg_id or "", msg))
         elif mtype == "action":
             self._spawn(self._handle_action(msg_id or "", str(msg.get("action", "")), msg.get("args") or {}))
+        elif mtype == "apps":
+            self._spawn(self._handle_apps(msg_id or ""))
         elif mtype == "screenshot":
             self._spawn(self._handle_screenshot(msg_id or "", int(msg.get("maxWidth") or 900)))
         elif mtype == "hello":
@@ -198,7 +203,7 @@ class Session:
         ext = _EXT_FOR_MIME.get(mime, "m4a")
         await self.status("transcribing", "Listening…", msg_id)
         try:
-            text = await self.agent.groq.transcribe(self.agent.cfg.stt_model, audio, f"voice.{ext}", mime)
+            text = await self._transcribe(audio, ext, mime)
         except Exception as exc:
             log.warning("transcription failed: %s", exc)
             await self.status("idle")
@@ -206,6 +211,19 @@ class Session:
             return
         await self.send({"type": "transcript", "id": msg_id, "text": text})
         await self._handle_chat(msg_id, text, bool(msg.get("speak", True)))
+
+    async def _transcribe(self, audio: bytes, ext: str, mime: str) -> str:
+        models = self.agent.models
+        model = await models.ensure("stt")
+        try:
+            return await self.agent.groq.transcribe(model, audio, f"voice.{ext}", mime)
+        except Exception as exc:
+            if not is_unusable_model_error(exc):
+                raise
+            replacement = await models.fix("stt", failed=model)
+            if not replacement:
+                raise
+            return await self.agent.groq.transcribe(replacement, audio, f"voice.{ext}", mime)
 
     async def _handle_chat(self, msg_id: str, text: str, speak: bool) -> None:
         async def progress(detail: str) -> None:
@@ -269,6 +287,14 @@ class Session:
         if result is not None:
             await self.send({"type": "action_result", "id": msg_id, "action": action, "ok": result.ok, "detail": result.detail})
         await self.status("idle")
+
+    async def _handle_apps(self, msg_id: str) -> None:
+        try:
+            apps = await asyncio.to_thread(self.agent.automation.installed_apps)
+        except Exception as exc:
+            log.warning("listing apps failed: %s", exc)
+            apps = []
+        await self.send({"type": "apps", "id": msg_id, "apps": apps})
 
     async def _handle_screenshot(self, msg_id: str, max_width: int) -> None:
         try:

@@ -1,11 +1,12 @@
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder, type RecordingOptions } from 'expo-audio';
 import { File } from 'expo-file-system';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Easing, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { stopVoice } from '../lib/voice';
 import { useApp } from '../state/AppContext';
 import { colors, shadow } from '../theme';
+import { Icon } from './ui';
 import { useAnimValue } from '../lib/anim';
 
 // Mono AAC at 64 kbps: small uploads, plenty for speech recognition.
@@ -92,7 +93,14 @@ export function PushToTalk({ disabled, size = 96 }: { disabled?: boolean; size?:
       const perm = await requestRecordingPermissionsAsync();
       if (!perm.granted) {
         phase.current = 'idle';
-        showToast('Allow microphone access to talk to your friend', 'error');
+        if (perm.canAskAgain === false && Platform.OS !== 'web') {
+          Alert.alert('Microphone is off', 'Allow the microphone for Desktop Friend in Settings so I can hear you.', [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+          ]);
+        } else {
+          showToast('Allow microphone access to talk to your friend', 'error');
+        }
         return;
       }
       stopVoice();
@@ -153,7 +161,7 @@ export function PushToTalk({ disabled, size = 96 }: { disabled?: boolean; size?:
             },
           ]}
         >
-          <Text style={{ fontSize: size * 0.4 }}>{recording ? '👂' : '🎤'}</Text>
+          <Icon name={recording ? 'ear-outline' : 'mic'} size={size * 0.42} color="#fff" />
         </Pressable>
       </View>
       <Text style={styles.hint}>{recording ? 'Listening… let go to send' : 'Hold to talk'}</Text>

@@ -35,6 +35,7 @@ export type QuickAction =
   | 'scroll' // args: { direction: 'up'|'down', amount?: number }
   | 'type' // args: { text: string, enter?: boolean }
   | 'keys' // args: { keys: string[] }   e.g. ['mod','s']
+  | 'shortcut' // args: { name: string }  OS-aware named shortcut, e.g. 'screenshot', 'lock', 'new_tab'
   | 'open_app' // args: { name: string }
   | 'open_url' // args: { url: string }
   | 'web_search' // args: { query: string }
@@ -99,6 +100,12 @@ export interface PingMsg {
   t: number;
 }
 
+/** Ask for the apps installed on the PC (Start menu / Applications / .desktop entries). */
+export interface AppsRequestMsg {
+  type: 'apps';
+  id: string;
+}
+
 export type ClientMessage =
   | HelloMsg
   | ChatMsg
@@ -106,6 +113,7 @@ export type ClientMessage =
   | ActionMsg
   | ScreenshotRequestMsg
   | ConfigUpdateMsg
+  | AppsRequestMsg
   | PingMsg;
 
 // ---------------------------------------------------------------------------
@@ -214,6 +222,13 @@ export interface PongMsg {
   t: number;
 }
 
+export interface AppsMsg {
+  type: 'apps';
+  id: string;
+  /** Display names, sorted. Open one with ActionMsg { action: 'open_app', args: { name } }. */
+  apps: string[];
+}
+
 export type ServerMessage =
   | WelcomeMsg
   | StatusMsg
@@ -223,6 +238,7 @@ export type ServerMessage =
   | ScreenshotMsg
   | ConfigMsg
   | ErrorMsg
+  | AppsMsg
   | PongMsg;
 
 // ---------------------------------------------------------------------------

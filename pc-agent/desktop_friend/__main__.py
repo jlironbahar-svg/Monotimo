@@ -61,15 +61,23 @@ async def _check(cfg: Config) -> int:
         print("  Groq:        NOT SET  (chat, vision, voice input disabled; simple commands still work)")
         ok = False
     else:
+        from .models import SETTING, ModelResolver
+
         try:
             models = set(await groq.list_models())
             print(f"  Groq:        key ok ({len(models)} models available)")
-            for label, model in (("chat", cfg.chat_model), ("vision", cfg.vision_model), ("stt", cfg.stt_model), ("search", cfg.search_model)):
-                mark = "ok" if model in models else "MISSING - pick another id from the list below"
-                ok &= model in models
-                print(f"    {label:<7} {model:<48} {mark}")
+            before = {kind: getattr(cfg, attr) for kind, (attr, _env) in SETTING.items()}
+            await ModelResolver(groq, cfg).startup_check()  # swaps retired/"auto" models and saves to .env
+            for kind, (attr, _env) in SETTING.items():
+                model = getattr(cfg, attr)
+                if model in models:
+                    note = "ok" if model == before[kind] else f"ok (switched from {before[kind]!r}, saved to .env)"
+                else:
+                    note = "NOT AVAILABLE - no working replacement found"
+                    ok = False
+                print(f"    {kind:<7} {model:<48} {note}")
             if not ok:
-                print("  Available models:\n    " + "\n    ".join(sorted(models)))
+                print("  Models on your account:\n    " + "\n    ".join(sorted(models)))
         except GroqError as exc:
             print(f"  Groq:        FAILED  {exc}")
             ok = False

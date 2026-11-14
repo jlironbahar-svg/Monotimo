@@ -214,6 +214,11 @@ class ToolExecutor:
         outcome = await self._auto(self.auto.press_keys, keys)
         return ToolResult(outcome.ok, outcome.detail)
 
+    async def shortcut(self, name: str, progress: Progress | None = None) -> ToolResult:
+        await self._progress(progress, name.replace("_", " ").capitalize())
+        outcome = await self._auto(self.auto.run_shortcut, name)
+        return ToolResult(outcome.ok, outcome.detail)
+
     async def open_app(self, name: str, progress: Progress | None = None) -> ToolResult:
         await self._progress(progress, f"Opening {name}")
         outcome = await asyncio.to_thread(self.auto.open_app, name)
@@ -282,6 +287,8 @@ class ToolExecutor:
                 )
             if name in ("press_keys", "keys"):
                 return await self.press_keys(args.get("keys") or [], progress)
+            if name == "shortcut":
+                return await self.shortcut(str(args.get("name", "")), progress)
             if name == "open_app":
                 return await self.open_app(str(args.get("name", "")), progress)
             if name in ("open_website", "open_url"):
@@ -298,7 +305,7 @@ class ToolExecutor:
         except GroqError as exc:
             log.warning("tool %s: %s", name, exc)
             if exc.is_model_missing:
-                return ToolResult(False, f"The Groq vision model isn't available: {exc.message}. Update GROQ_VISION_MODEL in .env.")
+                return ToolResult(False, f"I can't see your screen right now: {exc.message}. Run 'python -m desktop_friend --check' on the PC for details.")
             return ToolResult(False, f"My eyes aren't working right now ({exc.message}).")
         except (TypeError, ValueError) as exc:
             return ToolResult(False, f"Bad arguments for {name}: {exc}")

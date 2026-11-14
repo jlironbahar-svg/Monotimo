@@ -109,3 +109,16 @@ class SilentSounds:
 
 
 __all__ = ["FakeGroq", "FakeVision", "FakeAutomation", "FakeSearch", "SilentSounds", "tool_call", "GroqError"]
+
+
+def _fake_run_shortcut(self, name):
+    self.calls.append(("shortcut", name))
+    return ActionOutcome(True, name)
+
+
+def _fake_installed_apps(self):
+    return ["Claude", "Spotify", "Visual Studio Code"]
+
+
+FakeAutomation.run_shortcut = _fake_run_shortcut
+FakeAutomation.installed_apps = _fake_installed_apps

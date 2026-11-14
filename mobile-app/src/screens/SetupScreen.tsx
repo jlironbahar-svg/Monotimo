@@ -1,12 +1,12 @@
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Linking, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { parsePairingPayload } from '../../../shared/protocol';
 import { Puppy } from '../components/Puppy';
-import { Card, PillButton } from '../components/ui';
+import { Card, Icon, PillButton } from '../components/ui';
 import { useApp } from '../state/AppContext';
 import { colors, font, radius } from '../theme';
 
@@ -104,9 +104,20 @@ export function SetupScreen() {
                 </View>
               ) : (
                 <Card style={{ alignItems: 'center' }}>
-                  <Text style={styles.connTitle}>📷 Camera needed</Text>
-                  <Text style={styles.connText}>Desktop Friend uses the camera only to scan the pairing QR code.</Text>
-                  <PillButton label="Allow camera" onPress={() => void requestPermission()} style={{ marginTop: 12 }} />
+                  <View style={styles.camIcon}>
+                    <Icon name="camera-outline" size={30} color={colors.primary} />
+                  </View>
+                  <Text style={styles.connTitle}>Camera access</Text>
+                  <Text style={styles.connText}>
+                    {permission.canAskAgain
+                      ? 'Desktop Friend uses the camera only to scan the pairing QR code on your PC.'
+                      : 'The camera is turned off for Desktop Friend. Turn it on in Settings, then come back.'}
+                  </Text>
+                  {permission.canAskAgain ? (
+                    <PillButton label="Allow camera" icon="camera-outline" onPress={() => void requestPermission()} style={{ marginTop: 12 }} />
+                  ) : (
+                    <PillButton label="Open Settings" icon="settings-outline" onPress={() => void Linking.openSettings()} style={{ marginTop: 12 }} />
+                  )}
                 </Card>
               )}
             </View>
@@ -181,6 +192,7 @@ const styles = StyleSheet.create({
   corner: { position: 'absolute', width: 36, height: 36, borderColor: '#fff', borderRadius: 6 },
   scanHint: { color: '#fff', fontWeight: '700', marginBottom: 14, backgroundColor: 'rgba(0,0,0,0.45)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill, overflow: 'hidden' },
   connecting: { marginTop: 16, alignItems: 'center', paddingVertical: 24 },
+  camIcon: { width: 60, height: 60, borderRadius: 20, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   connTitle: { ...font.h2, marginTop: 10, textAlign: 'center' },
   connText: { ...font.small, marginTop: 6, textAlign: 'center' },
   label: { fontSize: 13, fontWeight: '700', color: colors.muted, marginBottom: 6 },

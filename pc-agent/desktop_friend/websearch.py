@@ -13,6 +13,7 @@ import re
 import httpx
 
 from .groq_client import GroqClient, GroqError
+from .models import is_unusable_model_error
 
 log = logging.getLogger(__name__)
 
@@ -39,15 +40,19 @@ def parse_ddg_html(page: str, limit: int = 4) -> list[tuple[str, str]]:
 
 
 class WebSearcher:
-    def __init__(self, groq: GroqClient, model_getter):
+    def __init__(self, groq: GroqClient, model_getter, models=None):
         self.groq = groq
         self._model = model_getter
+        self.models = models
 
     async def summarize(self, query: str) -> str:
         if self.groq.configured:
+            model = self._model()
             try:
+                if model == "auto" and self.models:
+                    model = await self.models.ensure("search")
                 msg = await self.groq.chat(
-                    self._model(),
+                    model,
                     [
                         {
                             "role": "system",
@@ -63,6 +68,8 @@ class WebSearcher:
                     return text
             except GroqError as exc:
                 log.info("Groq compound search failed (%s); falling back to DuckDuckGo", exc)
+                if self.models and is_unusable_model_error(exc):
+                    await self.models.fix("search", failed=model)
         return await self._duckduckgo(query)
 
     async def _duckduckgo(self, query: str) -> str:

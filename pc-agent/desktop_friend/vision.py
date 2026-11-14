@@ -17,7 +17,8 @@ from dataclasses import dataclass
 
 from PIL import Image, ImageDraw, ImageFont
 
-from .groq_client import GroqClient
+from .groq_client import GroqClient, GroqError
+from .models import is_unusable_model_error
 
 log = logging.getLogger(__name__)
 
@@ -149,11 +150,24 @@ def crop_box(width: int, height: int, cx: float, cy: float, frac: float = 0.3, m
 
 
 class Vision:
-    def __init__(self, groq: GroqClient, model_getter, refine_getter, capture: ScreenCapture | None = None):
+    def __init__(self, groq: GroqClient, model_getter, refine_getter, capture: ScreenCapture | None = None, models=None):
         self.groq = groq
         self._model = model_getter
         self._refine = refine_getter
         self.capture = capture or ScreenCapture()
+        self.models = models  # ModelResolver: swaps in a working vision model if the configured one is gone
+
+    async def _vision(self, prompt: str, jpeg: bytes, system: str | None = None) -> str:
+        model = await self.models.ensure("vision") if self.models else self._model()
+        try:
+            return await self.groq.vision(model, prompt, jpeg, system=system)
+        except GroqError as exc:
+            if not (self.models and is_unusable_model_error(exc, needs_images=True)):
+                raise
+            replacement = await self.models.fix("vision", failed=model)
+            if not replacement:
+                raise GroqError(404, "no vision-capable Groq model is available on your account right now", "model_not_found") from exc
+            return await self.groq.vision(replacement, prompt, jpeg, system=system)
 
     async def grab(self) -> Image.Image:
         return await asyncio.to_thread(self.capture.grab)
@@ -169,11 +183,11 @@ class Vision:
     async def describe(self, question: str | None = None) -> str:
         img = resize_max(await self.grab(), 1280)
         prompt = (question or "What is on my screen right now?") + " Answer in at most 3 short sentences."
-        return await self.groq.vision(self._model(), prompt, to_jpeg(img, 80), system=DESCRIBE_SYSTEM)
+        return await self._vision(prompt, to_jpeg(img, 80), system=DESCRIBE_SYSTEM)
 
     async def _ask_point(self, img: Image.Image, target: str):
         jpeg = to_jpeg(annotate_grid(img), 82)
-        text = await self.groq.vision(self._model(), LOCATE_PROMPT.format(target=target), jpeg, system=LOCATE_SYSTEM)
+        text = await self._vision(LOCATE_PROMPT.format(target=target), jpeg, system=LOCATE_SYSTEM)
         log.debug("vision answer for %r: %s", target, text)
         return parse_point(text)
 

@@ -5,11 +5,11 @@ DEFAULT_PORT = 8765
 PAIR_URL_SCHEME = "desktopfriend"
 
 # Phone -> PC message types
-CLIENT_TYPES = frozenset({"hello", "chat", "voice", "action", "screenshot", "config", "ping"})
+CLIENT_TYPES = frozenset({"hello", "chat", "voice", "action", "screenshot", "config", "apps", "ping"})
 
 # PC -> Phone message types
 SERVER_TYPES = frozenset(
-    {"welcome", "status", "transcript", "reply", "action_result", "screenshot", "config", "error", "pong"}
+    {"welcome", "status", "transcript", "reply", "action_result", "screenshot", "config", "error", "apps", "pong"}
 )
 
 QUICK_ACTIONS = frozenset(
@@ -19,6 +19,7 @@ QUICK_ACTIONS = frozenset(
         "scroll",
         "type",
         "keys",
+        "shortcut",
         "open_app",
         "open_url",
         "web_search",

@@ -138,3 +138,14 @@ async def test_voice_requires_key_and_transcribes(aiohttp_client, agent, cfg):
     assert transcript["text"] == "point at the save button"
     reply, _ = await _until(ws, "reply")
     assert reply["id"] == "v2"
+
+
+async def test_apps_list_and_shortcut(aiohttp_client, agent):
+    client = await aiohttp_client(create_app(agent))
+    ws, _ = await _pair(client, agent)
+    await ws.send_json({"type": "apps", "id": "l1"})
+    msg, _ = await _until(ws, "apps")
+    assert msg == {"type": "apps", "id": "l1", "apps": ["Claude", "Spotify", "Visual Studio Code"]}
+    await ws.send_json({"type": "action", "id": "k1", "action": "shortcut", "args": {"name": "screenshot"}})
+    res, _ = await _until(ws, "action_result")
+    assert res["ok"] and ("shortcut", "screenshot") in agent.automation.calls

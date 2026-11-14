@@ -43,6 +43,7 @@ export function TamagotchiScreen() {
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <View>
+          <Text style={styles.greeting}>{greeting()}</Text>
           <Text style={styles.name}>{name}</Text>
           <View style={styles.levelRow}>
             <Text style={styles.level}>Lv {lvl}</Text>
@@ -76,7 +77,16 @@ export function TamagotchiScreen() {
   );
 }
 
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 5) return 'Up late? 🌙';
+  if (h < 12) return 'Good morning ☀️';
+  if (h < 18) return 'Good afternoon';
+  return 'Good evening ✨';
+}
+
 const styles = StyleSheet.create({
+  greeting: { fontSize: 13, fontWeight: '700', color: colors.muted },
   content: { padding: 16, paddingBottom: 24 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   name: { ...font.title },

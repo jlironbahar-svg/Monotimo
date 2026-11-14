@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, BackHandler, KeyboardAvoidingView, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ConnectionBanner } from './src/components/ConnectionBanner';
 import { ModeBar, type Mode } from './src/components/ModeBar';
 import { Toast } from './src/components/Toast';
 import { AppsScreen } from './src/screens/AppsScreen';
@@ -43,6 +44,7 @@ function Main() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
+      <ConnectionBanner />
       {/* Edge-to-edge apps don't get resized by the keyboard; "padding" measures the real overlap on both platforms. */}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         {mode === 'pet' && <TamagotchiScreen />}

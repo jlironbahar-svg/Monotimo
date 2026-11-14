@@ -89,7 +89,7 @@ export function SettingsScreen() {
         <StatusPill />
       </View>
 
-      <SectionTitle>Companion</SectionTitle>
+      <SectionTitle icon="paw-outline">Companion</SectionTitle>
       <Card>
         <View style={styles.avatarRow}>
           <Avatar uri={settings.avatarUri} size={96} onPress={() => app.sfx('boop')} />
@@ -106,13 +106,13 @@ export function SettingsScreen() {
           </View>
         </View>
         <View style={styles.row2}>
-          <PillButton label="Choose photo" emoji="🖼️" small onPress={() => void pickPhoto()} style={{ flex: 1 }} />
-          <PillButton label="Use puppy" emoji="🐶" tone="soft" small disabled={!settings.avatarUri} onPress={() => updateSettings({ avatarUri: null })} style={{ flex: 1 }} />
+          <PillButton label="Choose photo" icon="images-outline" small onPress={() => void pickPhoto()} style={{ flex: 1 }} />
+          <PillButton label="Use puppy" icon="paw-outline" tone="soft" small disabled={!settings.avatarUri} onPress={() => updateSettings({ avatarUri: null })} style={{ flex: 1 }} />
         </View>
         <Text style={styles.help}>Any photo works: it gets cute bounce, float and blink animations automatically.</Text>
       </Card>
 
-      <SectionTitle>Sound & voice</SectionTitle>
+      <SectionTitle icon="volume-medium-outline">Sound & voice</SectionTitle>
       <Card>
         <Toggle label="Sound effects" hint="Barks, boops and chimes" value={settings.soundEffects} onChange={(v) => updateSettings({ soundEffects: v })} />
         <Toggle label="Vibration" value={settings.haptics} onChange={(v) => updateSettings({ haptics: v })} />
@@ -122,7 +122,7 @@ export function SettingsScreen() {
         <Toggle label="Blue cursor visible" value={pcConfig?.cursorVisible ?? true} disabled={!connected} onChange={(v) => app.updatePcConfig({ cursorVisible: v })} last />
       </Card>
 
-      <SectionTitle>AI keys (stored on your PC)</SectionTitle>
+      <SectionTitle icon="key-outline">AI keys (stored on your PC)</SectionTitle>
       <Card>
         <Text style={styles.label}>Groq API key · {keyStatus(pcConfig?.hasGroqKey)}</Text>
         <TextInput value={groqKey} onChangeText={setGroqKey} placeholder={pcConfig?.hasGroqKey ? '•••••••• (paste to replace)' : 'gsk_…'} placeholderTextColor={colors.faint} secureTextEntry autoCapitalize="none" autoCorrect={false} style={styles.input} />
@@ -130,14 +130,14 @@ export function SettingsScreen() {
         <TextInput value={elevenKey} onChangeText={setElevenKey} placeholder={pcConfig?.hasElevenLabsKey ? '•••••••• (paste to replace)' : 'sk_…'} placeholderTextColor={colors.faint} secureTextEntry autoCapitalize="none" autoCorrect={false} style={styles.input} />
         <Text style={styles.label}>ElevenLabs voice ID</Text>
         <TextInput value={voiceId} onChangeText={setVoiceId} placeholder="cgSgspJ2msm6clMCkdW9" placeholderTextColor={colors.faint} autoCapitalize="none" autoCorrect={false} style={styles.input} />
-        <PillButton label="Save to PC" emoji="🔒" onPress={saveKeys} disabled={!connected} style={{ marginTop: 14 }} />
+        <PillButton label="Save to PC" icon="lock-closed-outline" onPress={saveKeys} disabled={!connected} style={{ marginTop: 14 }} />
         <Text style={styles.help}>
           Keys travel over your home Wi-Fi to the PC and are saved in pc-agent/.env. They are never stored on this phone.
           {pcConfig ? `\nModels: ${pcConfig.models.chat} · vision ${pcConfig.models.vision} · ${pcConfig.models.stt} · ${pcConfig.models.tts}` : ''}
         </Text>
       </Card>
 
-      <SectionTitle>Wi-Fi connection</SectionTitle>
+      <SectionTitle icon="wifi-outline">Wi-Fi connection</SectionTitle>
       <Card>
         <Text style={styles.value}>{pairing ? `🖥️ ${pairing.pcName}` : 'Not paired'}</Text>
         <Text style={styles.help}>Addresses from the QR code: {pairing?.hosts.join(', ') ?? '-'}</Text>
@@ -158,7 +158,7 @@ export function SettingsScreen() {
         <PillButton label="Forget PC & scan a new QR" tone="danger" small onPress={forget} style={{ marginTop: 10 }} />
       </Card>
 
-      <Text style={styles.about}>Desktop Friend 1.0.0 · protocol v{PROTOCOL_VERSION}</Text>
+      <Text style={styles.about}>Desktop Friend 1.1.0 · protocol v{PROTOCOL_VERSION}</Text>
     </ScrollView>
   );
 }

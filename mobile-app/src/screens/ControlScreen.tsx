@@ -102,24 +102,24 @@ export function ControlScreen() {
           </Card>
         )}
 
-        <SectionTitle>Quick actions</SectionTitle>
+        <SectionTitle icon="flash-outline">Quick actions</SectionTitle>
         <View style={styles.grid}>
-          <Tile emoji="👀" label="What's on screen?" disabled={!connected} onPress={() => app.runAction('describe_screen', {}, "What's on my screen?")} />
-          <Tile emoji="👉" label="Point at…" disabled={!connected} color={colors.pinkSoft} onPress={() => startPending('point')} />
-          <Tile emoji="🖱️" label="Click…" disabled={!connected} color={colors.pinkSoft} onPress={() => startPending('click')} />
-          <Tile emoji="⌨️" label="Type…" disabled={!connected} color={colors.yellowSoft} onPress={() => startPending('type')} />
-          <Tile emoji="🔍" label="Search web…" disabled={!connected} color={colors.yellowSoft} onPress={() => startPending('web_search')} />
-          <Tile emoji="📸" label="Peek at screen" disabled={!connected} onPress={app.requestScreenshot} />
-          <Tile emoji="⬆️" label="Scroll up" disabled={!connected} color={colors.greenSoft} onPress={() => app.runAction('scroll', { direction: 'up', amount: 5 }, 'Scroll up')} />
-          <Tile emoji="⬇️" label="Scroll down" disabled={!connected} color={colors.greenSoft} onPress={() => app.runAction('scroll', { direction: 'down', amount: 5 }, 'Scroll down')} />
-          <Tile emoji="🏠" label="Cursor home" disabled={!connected} color={colors.purpleSoft} onPress={() => app.runAction('cursor_home', {}, 'Cursor home')} />
+          <Tile icon="eye-outline" tint={colors.primary} label="What's on screen?" disabled={!connected} onPress={() => app.runAction('describe_screen', {}, "What's on my screen?")} />
+          <Tile icon="navigate-outline" tint={colors.pink} label="Point at…" disabled={!connected} onPress={() => startPending('point')} />
+          <Tile icon="hand-left-outline" tint={colors.pink} label="Click…" disabled={!connected} onPress={() => startPending('click')} />
+          <Tile icon="keypad-outline" tint="#E0A800" label="Type…" disabled={!connected} onPress={() => startPending('type')} />
+          <Tile icon="search-outline" tint="#E0A800" label="Search web…" disabled={!connected} onPress={() => startPending('web_search')} />
+          <Tile icon="camera-outline" tint={colors.primary} label="Peek at screen" disabled={!connected} onPress={app.requestScreenshot} />
+          <Tile icon="arrow-up-circle-outline" tint={colors.green} label="Scroll up" disabled={!connected} onPress={() => app.runAction('scroll', { direction: 'up', amount: 5 }, 'Scroll up')} />
+          <Tile icon="arrow-down-circle-outline" tint={colors.green} label="Scroll down" disabled={!connected} onPress={() => app.runAction('scroll', { direction: 'down', amount: 5 }, 'Scroll down')} />
+          <Tile icon="home-outline" tint={colors.purple} label="Cursor home" disabled={!connected} onPress={() => app.runAction('cursor_home', {}, 'Cursor home')} />
         </View>
 
         <View style={styles.ptt}>
           <PushToTalk disabled={!connected} />
         </View>
 
-        {messages.length > 0 && <SectionTitle>Conversation</SectionTitle>}
+        {messages.length > 0 && <SectionTitle icon="chatbubbles-outline">Conversation</SectionTitle>}
         {messages.slice(-16).map((m) => (
           <ChatRow key={m.id + m.from} entry={m} />
         ))}

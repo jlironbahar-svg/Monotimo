@@ -9,6 +9,7 @@ from .automation import Automation
 from .brain import Brain
 from .config import Config
 from .groq_client import GroqClient
+from .models import ModelResolver
 from .netinfo import lan_addresses
 from .pairing import PairingStore, pairing_url
 from .sounds import SoundPlayer
@@ -29,6 +30,7 @@ class Agent:
 
         self.pairing = PairingStore(data_dir / "pairing.json")
         self.groq = GroqClient(lambda: self.cfg.groq_api_key)
+        self.models = ModelResolver(self.groq, config, on_change=lambda _kind, _model: self.ui.config_changed())
         self.tts = ElevenLabsTTS(
             lambda: self.cfg.elevenlabs_api_key,
             lambda: self.cfg.elevenlabs_voice_id,
@@ -36,11 +38,11 @@ class Agent:
         )
         self.audio = AudioCache()
         self.sounds = SoundPlayer(data_dir, lambda: self.cfg.pc_sounds)
-        self.vision = Vision(self.groq, lambda: self.cfg.vision_model, lambda: self.cfg.vision_refine, capture)
+        self.vision = Vision(self.groq, lambda: self.cfg.vision_model, lambda: self.cfg.vision_refine, capture, models=self.models)
         self.automation = Automation(config)
-        self.search = WebSearcher(self.groq, lambda: self.cfg.search_model)
+        self.search = WebSearcher(self.groq, lambda: self.cfg.search_model, models=self.models)
         self.tools = ToolExecutor(config, self.vision, self.automation, self.search, self.ui, self.sounds)
-        self.brain = Brain(config, self.groq, self.tools)
+        self.brain = Brain(config, self.groq, self.tools, models=self.models)
         self.hosts = lan_addresses(config.host)
         # Only one thing at a time may drive the mouse/keyboard, whichever phone asked.
         self.action_lock = asyncio.Lock()

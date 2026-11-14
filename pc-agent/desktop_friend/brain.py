@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 
 from . import fallback
 from .groq_client import GroqClient, GroqError
+from .models import is_unusable_model_error
 from .tools import OS_NAME, TOOL_SCHEMAS, Progress, ToolExecutor, ToolResult
 
 log = logging.getLogger(__name__)
@@ -73,10 +74,22 @@ def _fallback_reply(tool: str, result: ToolResult) -> str:
 
 
 class Brain:
-    def __init__(self, config, groq: GroqClient, tools: ToolExecutor):
+    def __init__(self, config, groq: GroqClient, tools: ToolExecutor, models=None):
         self.cfg = config
         self.groq = groq
         self.tools = tools
+        self.models = models
+
+    async def _chat(self, messages: list[dict]) -> dict:
+        model = await self.models.ensure("chat") if self.models else self.cfg.chat_model
+        try:
+            return await self.groq.chat(model, messages, tools=TOOL_SCHEMAS)
+        except GroqError as exc:
+            if self.models and is_unusable_model_error(exc):
+                replacement = await self.models.fix("chat", failed=model)
+                if replacement:
+                    return await self.groq.chat(replacement, messages, tools=TOOL_SCHEMAS)
+            raise
 
     def system_prompt(self) -> str:
         return SYSTEM_PROMPT.format(os=OS_NAME, pc=self.cfg.pc_name)
@@ -119,7 +132,7 @@ class Brain:
         while step < MAX_STEPS:
             step += 1
             try:
-                msg = await self.groq.chat(self.cfg.chat_model, messages, tools=TOOL_SCHEMAS)
+                msg = await self._chat(messages)
             except GroqError as exc:
                 # Groq returns 400 tool_use_failed when the model emits a malformed call; one retry usually fixes it.
                 if exc.code == "tool_use_failed" and not retried:

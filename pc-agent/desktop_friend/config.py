@@ -25,7 +25,7 @@ DEFAULTS: dict[str, str] = {
     "ELEVENLABS_VOICE_ID": "cgSgspJ2msm6clMCkdW9",
     "ELEVENLABS_MODEL_ID": "eleven_flash_v2_5",
     "GROQ_CHAT_MODEL": "openai/gpt-oss-120b",
-    "GROQ_VISION_MODEL": "meta-llama/llama-4-scout-17b-16e-instruct",
+    "GROQ_VISION_MODEL": "auto",
     "GROQ_STT_MODEL": "whisper-large-v3-turbo",
     "GROQ_SEARCH_MODEL": "groq/compound-mini",
     "DF_HOST": "0.0.0.0",

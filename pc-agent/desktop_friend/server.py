@@ -97,10 +97,12 @@ async def serve(agent, stop: asyncio.Event, started: asyncio.Event | None = None
         raise
     log.info("listening on %s:%s (LAN: %s)", agent.cfg.host, agent.cfg.port, ", ".join(agent.hosts))
     agent.ui.pairing_changed(agent.pairing_url())
+    model_check = asyncio.create_task(agent.models.startup_check())
     if started:
         started.set()
     try:
         await stop.wait()
     finally:
+        model_check.cancel()
         await runner.cleanup()
         await agent.close()

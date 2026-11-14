@@ -95,3 +95,37 @@ def test_lan_addresses_is_bounded(monkeypatch):
     start = time.monotonic()
     assert netinfo.lan_addresses()  # always returns at least one address
     assert time.monotonic() - start < 3
+
+
+def test_named_shortcuts_cover_every_os():
+    from desktop_friend import automation
+
+    for name in automation.SHORTCUT_NAMES:
+        keys = automation.shortcut_keys(name)
+        assert keys, name
+        assert name in automation.SHORTCUT_LABELS, name
+    assert automation.shortcut_keys("nope") is None
+
+
+def test_app_matching_prefers_exact_names():
+    from desktop_friend.automation import _best_match
+
+    names = {"claude": "/a/Claude.lnk", "google chrome": "/a/Chrome.lnk", "spotify": "/a/Spotify.lnk"}
+    assert _best_match("claude", names, exact=True) == "/a/Claude.lnk"
+    assert _best_match("google", names, exact=True) is None  # "open google" must not launch Chrome
+    assert _best_match("spot", names) == "/a/Spotify.lnk"
+
+
+def test_gui_only_apps_never_use_cli(monkeypatch, cfg):
+    """`claude` on PATH is Claude Code (a CLI); "open Claude" must open the desktop app or claude.ai."""
+    from desktop_friend import automation
+
+    opened = []
+    monkeypatch.setattr(automation.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(automation, "_popen", lambda cmd, shell=False: opened.append(cmd))
+    monkeypatch.setattr(automation, "find_installed_app", lambda key, exact=False: None)
+    monkeypatch.setattr(automation.webbrowser, "open", lambda url, new=0: opened.append(url))
+    monkeypatch.setattr(automation, "IS_WIN", False)
+    monkeypatch.setattr(automation, "IS_MAC", False)
+    result = automation.Automation(cfg).open_app("Claude")
+    assert result.ok and opened == ["https://claude.ai"]

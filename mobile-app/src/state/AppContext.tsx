@@ -79,6 +79,8 @@ interface AppContextValue {
   pet: PetState;
   shortcuts: Shortcut[];
   screenshot: Screenshot | null;
+  /** Apps installed on the PC (null until requested). */
+  pcApps: string[] | null;
   toast: { text: string; tone: 'info' | 'error' | 'success'; key: number } | null;
   /** Bumps every time the friend wants to celebrate (hearts, etc.). */
   burst: { emoji: string; key: number } | null;
@@ -94,6 +96,7 @@ interface AppContextValue {
   runAction: (action: QuickAction, args?: Record<string, unknown>, label?: string) => void;
   requestScreenshot: () => void;
   clearScreenshot: () => void;
+  requestApps: () => void;
   updatePcConfig: (changes: Omit<ConfigUpdateMsg, 'type' | 'id'>) => boolean;
 
   updateSettings: (changes: Partial<Settings>) => void;
@@ -135,6 +138,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [pet, setPet] = useState<PetState>(DEFAULT_PET);
   const [shortcuts, setShortcuts] = useState<Shortcut[]>([]);
   const [screenshot, setScreenshot] = useState<Screenshot | null>(null);
+  const [pcApps, setPcApps] = useState<string[] | null>(null);
   const [toast, setToast] = useState<AppContextValue['toast']>(null);
   const [burst, setBurst] = useState<AppContextValue['burst']>(null);
 
@@ -201,8 +205,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         case 'config':
           setPcConfig(msg.config);
           break;
+        case 'apps':
+          setPcApps(msg.apps);
+          break;
         case 'error':
-          if (msg.code !== 'auth_failed' && msg.code !== 'protocol_mismatch') {
+          // An older PC agent doesn't know the "apps" request: just show no list instead of an error.
+          if (msg.code === 'bad_request' && msg.message.includes("'apps'")) {
+            setPcApps([]);
+          } else if (msg.code !== 'auth_failed' && msg.code !== 'protocol_mismatch') {
             showToast(msg.message, 'error');
             playSfx('error');
             if (msg.id) setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, pending: false } : m)));
@@ -395,6 +405,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     send({ type: 'screenshot', id: randomId(8), maxWidth: 1000 });
   }, [send]);
   const clearScreenshot = useCallback(() => setScreenshot(null), []);
+  const requestApps = useCallback(() => {
+    connRef.current?.send({ type: 'apps', id: randomId(8) });
+  }, []);
 
   const updatePcConfig = useCallback(
     (changes: Omit<ConfigUpdateMsg, 'type' | 'id'>) => send({ type: 'config', id: randomId(8), ...changes }),
@@ -454,6 +467,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       pet,
       shortcuts,
       screenshot,
+      pcApps,
       toast,
       burst,
       pairWith,
@@ -466,6 +480,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       runAction,
       requestScreenshot,
       clearScreenshot,
+      requestApps,
       updatePcConfig,
       updateSettings,
       petAction,
@@ -478,8 +493,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       ready, pairing, status, statusDetail, pcConfig, pcState, messages, tempMood, talking, settings, pet, shortcuts,
-      screenshot, toast, burst, pairWith, pairWithText, forgetPc, reconnect, setManualHost, sendChat, sendVoice,
-      runAction, requestScreenshot, clearScreenshot, updatePcConfig, updateSettings, petAction, addShortcut,
+      screenshot, pcApps, toast, burst, pairWith, pairWithText, forgetPc, reconnect, setManualHost, sendChat, sendVoice,
+      runAction, requestScreenshot, clearScreenshot, requestApps, updatePcConfig, updateSettings, petAction, addShortcut,
       removeShortcut, sfx, tap, showToast, setMoodFor,
     ],
   );

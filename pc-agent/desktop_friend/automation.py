@@ -105,10 +105,23 @@ WEB_APPS = {
     "drive": "https://drive.google.com",
     "google drive": "https://drive.google.com",
     "docs": "https://docs.google.com",
+    "whatsapp": "https://web.whatsapp.com",
     "whatsapp web": "https://web.whatsapp.com",
+    "telegram": "https://web.telegram.org",
+    "notion": "https://www.notion.so",
+    "figma": "https://www.figma.com",
+    "discord": "https://discord.com/app",
+    "spotify": "https://open.spotify.com",
+    "outlook": "https://outlook.live.com",
+    "teams": "https://teams.microsoft.com",
+    "copilot": "https://copilot.microsoft.com",
+    "gemini": "https://gemini.google.com",
     "spotify web": "https://open.spotify.com",
     "amazon": "https://www.amazon.com",
 }
+
+# Desktop apps whose name collides with a command-line tool: only the installed GUI app (or the web) is used.
+GUI_ONLY = {"claude", "chatgpt", "copilot", "whatsapp", "telegram", "zoom", "teams", "microsoft teams", "notion", "figma", "obsidian"}
 
 _WIN_APPS = {
     "notepad": ["notepad"],
@@ -145,6 +158,9 @@ _WIN_APPS = {
     "mail": ["outlookmail:", "mailto:"],
     "store": ["ms-windows-store:"],
     "snipping tool": ["ms-screenclip:", "snippingtool"],
+    "clock": ["ms-clock:"],
+    "calendar": ["outlookcal:"],
+    "maps": ["bingmaps:"],
 }
 
 _MAC_APPS = {
@@ -178,6 +194,17 @@ _MAC_APPS = {
     "mail": "Mail",
     "notes": "Notes",
     "messages": "Messages",
+    "claude": "Claude",
+    "chatgpt": "ChatGPT",
+    "whatsapp": "WhatsApp",
+    "telegram": "Telegram",
+    "zoom": "zoom.us",
+    "teams": "Microsoft Teams",
+    "notion": "Notion",
+    "figma": "Figma",
+    "obsidian": "Obsidian",
+    "paint": "Preview",
+    "store": "App Store",
     "photos": "Photos",
     "discord": "Discord",
     "slack": "Slack",
@@ -420,9 +447,9 @@ class Automation:
         return ActionOutcome(False, f"couldn't find an app called {raw!r} on this PC")
 
     def _open_windows(self, key: str, raw: str) -> bool:
-        if key in WEB_APPS and key not in _WIN_APPS:
-            return False
-        for target in _WIN_APPS.get(key, [raw]):
+        exact = key in WEB_APPS or key in GUI_ONLY
+        targets = [] if key in GUI_ONLY else _WIN_APPS.get(key, [] if exact else [raw])
+        for target in targets:
             if target.startswith("http"):
                 webbrowser.open(target, new=2)
                 return True
@@ -433,34 +460,36 @@ class Automation:
             if exe:
                 _popen([exe])
                 return True
-        shortcut = _find_start_menu_shortcut(key)
+        shortcut = find_installed_app(key, exact=exact)
         if shortcut:
             os.startfile(shortcut)  # type: ignore[attr-defined]
             return True
         return False
 
     def _open_mac(self, key: str, raw: str) -> bool:
-        if key in WEB_APPS and key not in _MAC_APPS:
-            return False
-        app = _MAC_APPS.get(key, raw)
-        result = subprocess.run(["open", "-a", app], capture_output=True, text=True, timeout=8)
-        if result.returncode == 0:
-            return True
-        bundle = _find_mac_app(key)
+        exact = key in WEB_APPS or key in GUI_ONLY
+        app = _MAC_APPS.get(key)
+        if app or not exact:
+            result = subprocess.run(["open", "-a", app or raw], capture_output=True, text=True, timeout=8)
+            if result.returncode == 0:
+                return True
+        bundle = find_installed_app(key, exact=exact)
         if bundle:
             return subprocess.run(["open", bundle], capture_output=True, timeout=8).returncode == 0
         return False
 
     def _open_linux(self, key: str, raw: str) -> bool:
-        if key in WEB_APPS and key not in _LINUX_APPS:
-            return False
-        candidates = _LINUX_APPS.get(key, [key.replace(" ", "-"), key.replace(" ", "")])
+        exact = key in WEB_APPS or key in GUI_ONLY
+        if key in GUI_ONLY:
+            candidates: list[str] = []
+        else:
+            candidates = _LINUX_APPS.get(key, [] if exact else [key.replace(" ", "-"), key.replace(" ", "")])
         for cmd in candidates:
             parts = cmd.split()
             if shutil.which(parts[0]):
                 _popen(parts)
                 return True
-        desktop = _find_desktop_file(key)
+        desktop = find_installed_app(key, exact=exact)
         if desktop:
             if shutil.which("gtk-launch"):
                 _popen(["gtk-launch", os.path.basename(desktop)])
@@ -469,6 +498,19 @@ class Automation:
                 _popen(["gio", "launch", desktop])
                 return True
         return False
+
+    # -- keyboard shortcuts by name ------------------------------------------
+    def run_shortcut(self, name: str) -> ActionOutcome:
+        keys = shortcut_keys(name)
+        if keys is None:
+            return ActionOutcome(False, f"unknown shortcut {name!r}")
+        outcome = self.press_keys(keys)
+        if outcome.ok:
+            return ActionOutcome(True, SHORTCUT_LABELS.get(name, name.replace("_", " ")))
+        return outcome
+
+    def installed_apps(self) -> list[str]:
+        return list_installed_apps()
 
 
 # ---------------------------------------------------------------------------
@@ -491,12 +533,12 @@ def _win_app_path(name: str) -> str | None:
     return None
 
 
-def _best_match(key: str, names: dict[str, str]) -> str | None:
+def _best_match(key: str, names: dict[str, str], exact: bool = False) -> str | None:
     """Pick the path whose display name equals, starts with, or contains the key."""
     key = key.lower()
-    exact = [p for n, p in names.items() if n == key]
-    if exact:
-        return exact[0]
+    exact_hits = [p for n, p in names.items() if n == key]
+    if exact_hits or exact:
+        return exact_hits[0] if exact_hits else None
     starts = sorted((n, p) for n, p in names.items() if n.startswith(key))
     if starts:
         return min(starts, key=lambda np: len(np[0]))[1]
@@ -506,59 +548,140 @@ def _best_match(key: str, names: dict[str, str]) -> str | None:
     return None
 
 
-def _find_start_menu_shortcut(key: str) -> str | None:
-    roots = [
-        os.path.join(os.environ.get("APPDATA", ""), r"Microsoft\Windows\Start Menu\Programs"),
-        os.path.join(os.environ.get("PROGRAMDATA", r"C:\ProgramData"), r"Microsoft\Windows\Start Menu\Programs"),
-    ]
-    names: dict[str, str] = {}
-    for root in roots:
-        if not os.path.isdir(root):
-            continue
-        for dirpath, _dirs, files in os.walk(root):
-            for f in files:
-                if f.lower().endswith((".lnk", ".url")) and "uninstall" not in f.lower():
-                    names.setdefault(os.path.splitext(f)[0].lower(), os.path.join(dirpath, f))
-    return _best_match(key, names)
+_SKIP_WORDS = ("uninstall", "readme", "read me", "help", "documentation", "license", "release notes", "website", "manual", "changelog", "support")
+_index_cache: tuple[float, dict[str, tuple[str, str]]] | None = None
 
 
-def _find_mac_app(key: str) -> str | None:
-    names: dict[str, str] = {}
-    for root in ("/Applications", "/System/Applications", "/System/Applications/Utilities", os.path.expanduser("~/Applications")):
-        if os.path.isdir(root):
-            for entry in os.listdir(root):
-                if entry.endswith(".app"):
-                    names.setdefault(entry[:-4].lower(), os.path.join(root, entry))
-    return _best_match(key, names)
+def _app_index() -> dict[str, tuple[str, str]]:
+    """lower-case name -> (display name, launch path) for apps installed on this computer (cached 60 s)."""
+    global _index_cache
+    now = time.monotonic()
+    if _index_cache and now - _index_cache[0] < 60:
+        return _index_cache[1]
+    index: dict[str, tuple[str, str]] = {}
 
+    def add(display: str, path: str) -> None:
+        display = display.strip()
+        low = display.lower()
+        if display and not any(w in low for w in _SKIP_WORDS):
+            index.setdefault(low, (display, path))
 
-def _find_desktop_file(key: str) -> str | None:
-    dirs = [
-        os.path.expanduser("~/.local/share/applications"),
-        "/usr/share/applications",
-        "/usr/local/share/applications",
-        "/var/lib/flatpak/exports/share/applications",
-        os.path.expanduser("~/.local/share/flatpak/exports/share/applications"),
-        "/var/lib/snapd/desktop/applications",
-    ]
-    names: dict[str, str] = {}
-    for d in dirs:
-        if not os.path.isdir(d):
-            continue
-        for f in os.listdir(d):
-            if not f.endswith(".desktop"):
+    if IS_WIN:
+        roots = [
+            os.path.join(os.environ.get("APPDATA", ""), r"Microsoft\Windows\Start Menu\Programs"),
+            os.path.join(os.environ.get("PROGRAMDATA", r"C:\ProgramData"), r"Microsoft\Windows\Start Menu\Programs"),
+        ]
+        for root in roots:
+            if os.path.isdir(root):
+                for dirpath, _dirs, files in os.walk(root):
+                    for f in files:
+                        if f.lower().endswith((".lnk", ".url")):
+                            add(os.path.splitext(f)[0], os.path.join(dirpath, f))
+    elif IS_MAC:
+        for root in ("/Applications", "/System/Applications", "/System/Applications/Utilities", os.path.expanduser("~/Applications")):
+            if os.path.isdir(root):
+                for entry in os.listdir(root):
+                    if entry.endswith(".app"):
+                        add(entry[:-4], os.path.join(root, entry))
+    else:
+        dirs = [
+            os.path.expanduser("~/.local/share/applications"),
+            "/usr/share/applications",
+            "/usr/local/share/applications",
+            "/var/lib/flatpak/exports/share/applications",
+            os.path.expanduser("~/.local/share/flatpak/exports/share/applications"),
+            "/var/lib/snapd/desktop/applications",
+        ]
+        for d in dirs:
+            if not os.path.isdir(d):
                 continue
-            path = os.path.join(d, f)
-            try:
-                with open(path, encoding="utf-8", errors="ignore") as fh:
-                    text = fh.read(4096)
-            except OSError:
-                continue
-            if "NoDisplay=true" in text:
-                continue
-            for line in text.splitlines():
-                if line.startswith("Name="):
-                    names.setdefault(line[5:].strip().lower(), path)
-                    break
-            names.setdefault(f[:-8].lower(), path)
-    return _best_match(key, names)
+            for f in os.listdir(d):
+                if not f.endswith(".desktop"):
+                    continue
+                path = os.path.join(d, f)
+                try:
+                    with open(path, encoding="utf-8", errors="ignore") as fh:
+                        text = fh.read(8192)
+                except OSError:
+                    continue
+                if "NoDisplay=true" in text or "Type=Application" not in text:
+                    continue
+                name = next((line[5:] for line in text.splitlines() if line.startswith("Name=")), f[:-8])
+                add(name, path)
+    _index_cache = (now, index)
+    return index
+
+
+def find_installed_app(key: str, exact: bool = False) -> str | None:
+    return _best_match(key, {k: v[1] for k, v in _app_index().items()}, exact=exact)
+
+
+def list_installed_apps(limit: int = 400) -> list[str]:
+    return sorted({v[0] for v in _app_index().values()}, key=str.lower)[:limit]
+
+
+# ---------------------------------------------------------------------------
+# Named keyboard shortcuts (the phone sends a name; the right keys are used for each OS)
+# ---------------------------------------------------------------------------
+_OS = "mac" if IS_MAC else ("win" if IS_WIN else "linux")
+_SHORTCUTS: dict[str, dict[str, list[str]] | list[str]] = {
+    # media
+    "play_pause": ["playpause"],
+    "next_track": ["nexttrack"],
+    "prev_track": ["prevtrack"],
+    "volume_up": ["volumeup"],
+    "volume_down": ["volumedown"],
+    "mute": ["volumemute"],
+    # editing
+    "copy": ["mod", "c"],
+    "paste": ["mod", "v"],
+    "cut": ["mod", "x"],
+    "undo": ["mod", "z"],
+    "redo": {"win": ["ctrl", "y"], "mac": ["command", "shift", "z"], "linux": ["ctrl", "shift", "z"]},
+    "select_all": ["mod", "a"],
+    "save": ["mod", "s"],
+    "find": ["mod", "f"],
+    "print": ["mod", "p"],
+    # browser & tabs
+    "new_tab": ["mod", "t"],
+    "close_tab": ["mod", "w"],
+    "reopen_tab": ["mod", "shift", "t"],
+    "next_tab": ["ctrl", "tab"],
+    "refresh": {"win": ["f5"], "mac": ["command", "r"], "linux": ["f5"]},
+    "back": {"win": ["alt", "left"], "mac": ["command", "["], "linux": ["alt", "left"]},
+    "zoom_in": ["mod", "="],
+    "zoom_out": ["mod", "-"],
+    # windows & system
+    "switch_app": {"win": ["alt", "tab"], "mac": ["command", "tab"], "linux": ["alt", "tab"]},
+    "show_desktop": {"win": ["win", "d"], "mac": ["f11"], "linux": ["win", "d"]},
+    "task_view": {"win": ["win", "tab"], "mac": ["ctrl", "up"], "linux": ["win"]},
+    "minimize": {"win": ["win", "down"], "mac": ["command", "m"], "linux": ["win", "h"]},
+    "fullscreen": {"win": ["f11"], "mac": ["ctrl", "command", "f"], "linux": ["f11"]},
+    "close_window": {"win": ["alt", "f4"], "mac": ["command", "w"], "linux": ["alt", "f4"]},
+    "screenshot": {"win": ["win", "shift", "s"], "mac": ["command", "shift", "4"], "linux": ["printscreen"]},
+    "lock": {"win": ["win", "l"], "mac": ["ctrl", "command", "q"], "linux": ["win", "l"]},
+    "search": {"win": ["win", "s"], "mac": ["command", "space"], "linux": ["win"]},
+    "emoji": {"win": ["win", "."], "mac": ["ctrl", "command", "space"], "linux": ["ctrl", "."]},
+    "settings": {"win": ["win", "i"], "mac": ["command", ","], "linux": ["win", "a"]},
+    "file_explorer": {"win": ["win", "e"], "mac": ["command", "shift", "h"], "linux": ["win", "e"]},
+}
+
+SHORTCUT_LABELS = {
+    "play_pause": "Play / pause", "next_track": "Next track", "prev_track": "Previous track", "volume_up": "Volume up",
+    "volume_down": "Volume down", "mute": "Mute", "copy": "Copied", "paste": "Pasted", "cut": "Cut", "undo": "Undone",
+    "redo": "Redone", "select_all": "Selected all", "save": "Saved", "find": "Find", "print": "Print",
+    "new_tab": "New tab", "close_tab": "Closed tab", "reopen_tab": "Reopened tab", "next_tab": "Next tab",
+    "refresh": "Refreshed", "back": "Went back", "zoom_in": "Zoomed in", "zoom_out": "Zoomed out",
+    "switch_app": "Switched app", "show_desktop": "Showing desktop", "task_view": "Task view", "minimize": "Minimized",
+    "fullscreen": "Fullscreen", "close_window": "Closed window", "screenshot": "Screenshot tool", "lock": "Locked the PC",
+    "search": "Search", "emoji": "Emoji picker", "settings": "Settings", "file_explorer": "Files",
+}
+
+SHORTCUT_NAMES = frozenset(_SHORTCUTS)
+
+
+def shortcut_keys(name: str) -> list[str] | None:
+    entry = _SHORTCUTS.get(name)
+    if entry is None:
+        return None
+    return list(entry[_OS] if isinstance(entry, dict) else entry)
