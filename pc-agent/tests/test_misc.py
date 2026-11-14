@@ -80,3 +80,18 @@ async def test_no_display_gives_friendly_error(cfg, monkeypatch):
     tools = ToolExecutor(cfg, None, Automation(cfg), None, NullBridge(), type("S", (), {"play": lambda *_: None})())
     result = await tools.run("scroll", {"direction": "down"})
     assert not result.ok and "can't reach the desktop" in result.detail
+
+
+def test_lan_addresses_is_bounded(monkeypatch):
+    import time
+
+    from desktop_friend import netinfo
+
+    def slow_getaddrinfo(*a, **k):
+        time.sleep(5)
+        return []
+
+    monkeypatch.setattr(netinfo.socket, "getaddrinfo", slow_getaddrinfo)
+    start = time.monotonic()
+    assert netinfo.lan_addresses()  # always returns at least one address
+    assert time.monotonic() - start < 3

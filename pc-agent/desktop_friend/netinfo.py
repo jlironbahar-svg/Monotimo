@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import socket
+import threading
 
 
 def _primary_ipv4() -> str | None:
@@ -20,6 +21,24 @@ def _primary_ipv4() -> str | None:
         finally:
             s.close()
     return None
+
+
+def _hostname_ips(timeout: float = 1.5) -> list[str]:
+    """Addresses the hostname resolves to. Bounded by a timeout: on macOS, resolving a `.local`
+    hostname can block on mDNS for a minute or more."""
+    found: list[str] = []
+
+    def work() -> None:
+        try:
+            for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+                found.append(info[4][0])
+        except OSError:
+            pass
+
+    t = threading.Thread(target=work, name="hostname-lookup", daemon=True)
+    t.start()
+    t.join(timeout)
+    return list(found)
 
 
 def _usable(ip: str) -> bool:
@@ -53,13 +72,9 @@ def lan_addresses(bind_host: str = "0.0.0.0") -> list[str]:
     if primary and _usable(primary):
         found.append(primary)
 
-    try:
-        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
-            ip = info[4][0]
-            if _usable(ip) and ip not in found:
-                found.append(ip)
-    except OSError:
-        pass
+    for ip in _hostname_ips():
+        if _usable(ip) and ip not in found:
+            found.append(ip)
 
     if not found:
         return ["127.0.0.1"]

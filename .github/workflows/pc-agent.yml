@@ -24,6 +24,7 @@ jobs:
           - os: ubuntu-latest
             python: '3.10'
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: pc-agent
@@ -47,4 +48,4 @@ jobs:
         run: python -m pip install -r requirements-dev.txt
 
       - name: Test
-        run: python -m pytest -q
+        run: python -m pytest -q --durations=5

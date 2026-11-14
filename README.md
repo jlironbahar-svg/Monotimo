@@ -70,7 +70,7 @@ Tamagotchi-style pet you can feed, pet and play with.
 │   │   ├── sounds.py             # synthesized chimes + non-blocking player
 │   │   ├── config.py, netinfo.py, protocol.py, ui.py
 │   │   └── gui/                  # PySide6: overlay.py (blue cursor), pairing_window.py, app.py, bridge.py
-│   ├── tests/                    # 53 pytest tests (server, brain, vision, pairing, GUI off-screen, ...)
+│   ├── tests/                    # 54 pytest tests (server, brain, vision, pairing, GUI off-screen, ...)
 │   ├── .env.example              # configuration template (copy to .env)
 │   ├── requirements.txt / requirements-dev.txt / pyproject.toml
 │   └── start.bat / start.sh      # one-click launchers (create venv, install, run)
@@ -315,7 +315,7 @@ connection** or scan a new QR code.
 ```bash
 # PC agent
 cd pc-agent && pip install -r requirements-dev.txt
-QT_QPA_PLATFORM=offscreen python -m pytest -q     # 53 tests, no display needed
+QT_QPA_PLATFORM=offscreen python -m pytest -q     # 54 tests, no display needed
 
 # Mobile app
 cd mobile-app && npm ci
