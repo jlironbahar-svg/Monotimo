@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, BackHandler, KeyboardAvoidingView, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ModeBar, type Mode } from './src/components/ModeBar';
@@ -18,6 +18,18 @@ function Main() {
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<Mode>('pet');
 
+  // Android back button: go back to the pet first, exit only from there.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (mode !== 'pet') {
+        setMode('pet');
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [mode]);
+
   if (!ready) {
     return (
       <View style={styles.center}>
@@ -31,12 +43,13 @@ function Main() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-      <View style={{ flex: 1 }}>
+      {/* Edge-to-edge apps don't get resized by the keyboard; "padding" measures the real overlap on both platforms. */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         {mode === 'pet' && <TamagotchiScreen />}
         {mode === 'control' && <ControlScreen />}
         {mode === 'apps' && <AppsScreen />}
         {mode === 'settings' && <SettingsScreen />}
-      </View>
+      </KeyboardAvoidingView>
       <ModeBar mode={mode} onChange={setMode} />
     </View>
   );
