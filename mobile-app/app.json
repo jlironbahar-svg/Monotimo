@@ -1,0 +1,74 @@
+{
+  "expo": {
+    "name": "Desktop Friend",
+    "slug": "desktop-friend",
+    "scheme": "desktopfriend",
+    "version": "1.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F3F6FF",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.desktopfriend.app",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "Desktop Friend talks to the Desktop Friend app running on your computer over your local Wi-Fi.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
+      }
+    },
+    "android": {
+      "package": "com.desktopfriend.app",
+      "versionCode": 2,
+      "adaptiveIcon": {
+        "backgroundColor": "#DCE8FF",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "ACCESS_WIFI_STATE",
+        "VIBRATE"
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Desktop Friend uses the camera to scan the pairing QR code shown on your PC.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Desktop Friend listens while you hold the talk button.",
+          "enableBackgroundRecording": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Pick a photo to use as your Desktop Friend avatar."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ]
+  }
+}

@@ -1,0 +1,90 @@
+# Builds an installable Android APK of the Desktop Friend app on every push that touches the app.
+# Download it from the run's "Artifacts" section (desktop-friend-apk).
+name: Android APK
+
+on:
+  push:
+    paths:
+      - 'mobile-app/**'
+      - 'shared/**'
+      - '.github/workflows/android-apk.yml'
+  pull_request:
+    paths:
+      - 'mobile-app/**'
+      - 'shared/**'
+  workflow_dispatch:
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write # publish the APK to the "apk-latest" release
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    defaults:
+      run:
+        working-directory: mobile-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile-app/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check and lint
+        run: |
+          npx tsc --noEmit
+          npx eslint .
+
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --clean --no-install
+        env:
+          CI: 1
+          EXPO_NO_TELEMETRY: 1
+
+      - name: Build release APK
+        working-directory: mobile-app/android
+        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a,x86_64
+
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk "desktop-friend-${GITHUB_SHA::7}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-friend-apk
+          path: mobile-app/desktop-friend-*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      # Also attach the APK to a GitHub Release so it can be downloaded directly (no zip), e.g. on the phone:
+      # https://github.com/<owner>/<repo>/releases/download/apk-latest/desktop-friend.apk
+      - name: Publish to the apk-latest release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp desktop-friend-*.apk desktop-friend.apk
+          notes="Latest Desktop Friend Android build from \`${GITHUB_REF_NAME}\` (commit ${GITHUB_SHA::7}).
+
+          Install: open desktop-friend.apk on your phone and allow installing from this source."
+          if ! gh release view apk-latest >/dev/null 2>&1; then
+            gh release create apk-latest --prerelease --target "$GITHUB_SHA" --title "Desktop Friend APK (latest build)" --notes "$notes"
+          fi
+          gh release upload apk-latest desktop-friend.apk --clobber
+          gh release edit apk-latest --notes "$notes"
