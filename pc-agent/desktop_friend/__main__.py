@@ -13,18 +13,9 @@ from pathlib import Path
 
 from . import __version__
 from .config import Config
+from .console import print_pairing
 
 log = logging.getLogger("desktop_friend")
-
-BANNER = r"""
-  ____            _    _                 _____     _                _
- |  _ \  ___  ___| | _| |_ ___  _ __   |  ___| __(_) ___ _ __   __| |
- | | | |/ _ \/ __| |/ / __/ _ \| '_ \  | |_ | '__| |/ _ \ '_ \ / _` |
- | |_| |  __/\__ \   <| || (_) | |_) | |  _|| |  | |  __/ | | | (_| |
- |____/ \___||___/_|\_\\__\___/| .__/  |_|  |_|  |_|\___|_| |_|\__,_|
-                               |_|
-"""
-
 
 def _setup_console() -> None:
     for stream in (sys.stdout, sys.stderr):
@@ -95,23 +86,6 @@ async def _check(cfg: Config) -> int:
     return 0 if ok else 1
 
 
-def _print_pairing(agent) -> None:
-    from .pairing import qr_matrix_ascii
-
-    url = agent.pairing_url()
-    print(BANNER)
-    print(f"  Desktop Friend v{__version__} on {agent.cfg.pc_name}")
-    print(f"  Listening on {', '.join(f'{h}:{agent.cfg.port}' for h in agent.hosts)}")
-    print("\n  Scan this QR code with the Desktop Friend app:\n")
-    print(qr_matrix_ascii(url))
-    print(f"  (or open http://localhost:{agent.cfg.port}/ on this PC for a bigger QR code)")
-    print(f"  Pairing URL: {url}\n")
-    keys = []
-    keys.append("Groq: " + ("set" if agent.cfg.groq_api_key else "MISSING"))
-    keys.append("ElevenLabs: " + ("set" if agent.cfg.elevenlabs_api_key else "MISSING (phone voice will be used)"))
-    print("  " + " | ".join(keys) + "\n")
-
-
 def run_headless(cfg: Config) -> int:
     from .agent import Agent
     from .server import serve
@@ -130,7 +104,7 @@ def run_headless(cfg: Config) -> int:
         done, _ = await asyncio.wait({task, asyncio.create_task(started.wait())}, return_when=asyncio.FIRST_COMPLETED)
         if task in done:
             task.result()  # re-raise startup error
-        _print_pairing(agent)
+        print_pairing(agent)
         await task
         return 0
 

@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
 from ..agent import Agent
 from ..config import Config
+from ..console import print_pairing
 from ..server import serve
 from .bridge import QtBridge
 from .overlay import CursorOverlay, paint_cursor
@@ -82,7 +83,7 @@ def run_gui(cfg: Config) -> int:
     bridge.home_sig.connect(overlay.go_home)
     bridge.visible_sig.connect(overlay.set_overlay_visible)
     bridge.status_sig.connect(window.set_activity)
-    bridge.status_sig.connect(lambda text: overlay.flash_label(text, 3.0) if not bridge.at_home else None)
+    bridge.status_sig.connect(lambda text: overlay.flash_label(text, 3.0))
     bridge.pairing_sig.connect(window.set_pairing)
     bridge.config_sig.connect(window.refresh_keys)
 
@@ -154,7 +155,7 @@ def run_gui(cfg: Config) -> int:
         overlay.set_overlay_visible(True)
     window.show()
 
-    print(f"Desktop Friend is running. Pairing window open; LAN address {agent.hosts[0]}:{cfg.port}")
+    print_pairing(agent)
     rc = app.exec()
     if tray:
         tray.hide()
