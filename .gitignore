@@ -1,0 +1,25 @@
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Secrets: never commit real API keys
+.env
+!.env.example
+*.keystore
+!debug.keystore
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# Node / Expo
+node_modules/
+.expo/
